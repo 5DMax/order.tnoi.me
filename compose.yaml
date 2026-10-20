@@ -1,0 +1,30 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    networks:
+      - mysql
+      - proxy
+    volumes:
+      - uploads:/var/www/html/storage/uploads
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK:?set TRAEFIK_NETWORK}
+      - traefik.http.routers.${TRAEFIK_ROUTER:?set TRAEFIK_ROUTER}.rule=Host(`${TRAEFIK_HOST:?set TRAEFIK_HOST}`)
+      - traefik.http.routers.${TRAEFIK_ROUTER}.entrypoints=${TRAEFIK_ENTRYPOINT:?set TRAEFIK_ENTRYPOINT}
+      - traefik.http.routers.${TRAEFIK_ROUTER}.tls=true
+      - traefik.http.routers.${TRAEFIK_ROUTER}.tls.certresolver=${TRAEFIK_CERT_RESOLVER:?set TRAEFIK_CERT_RESOLVER}
+      - traefik.http.routers.${TRAEFIK_ROUTER}.service=${TRAEFIK_ROUTER}
+      - traefik.http.services.${TRAEFIK_ROUTER}.loadbalancer.server.port=80
+networks:
+  mysql:
+    external: true
+    name: mysql
+  proxy:
+    external: true
+    name: ${TRAEFIK_NETWORK:?set TRAEFIK_NETWORK}
+volumes:
+  uploads:

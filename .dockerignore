@@ -1,0 +1,7 @@
+.git
+.env
+storage/uploads/*
+.DS_Store
+
+__pycache__
+*.pyc
