@@ -1,15 +1,26 @@
 services:
   app:
-    build: .
+    image: ghcr.io/5dmax/order.tnoi.me:${IMAGE_TAG:-main}
     restart: unless-stopped
     env_file: .env
     networks:
-      - mysql
+      - db-net
       - proxy
     volumes:
       - uploads:/var/www/html/storage/uploads
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "4", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     labels:
       - traefik.enable=true
       - traefik.docker.network=${TRAEFIK_NETWORK:?set TRAEFIK_NETWORK}
@@ -20,9 +31,9 @@ services:
       - traefik.http.routers.${TRAEFIK_ROUTER}.service=${TRAEFIK_ROUTER}
       - traefik.http.services.${TRAEFIK_ROUTER}.loadbalancer.server.port=80
 networks:
-  mysql:
+  db-net:
     external: true
-    name: mysql
+    name: db-net
   proxy:
     external: true
     name: ${TRAEFIK_NETWORK:?set TRAEFIK_NETWORK}

@@ -5,7 +5,7 @@ PHP 8.4 + Apache, PDO/MySQL 8, Bootstrap 5, Vanilla JS, Select2 และ SweetA
 ## 1. สิ่งที่ต้องเตรียม
 
 - Docker Engine/Compose v2 ที่ทำงานอยู่, Traefik พร้อม HTTPS entrypoint และ certificate resolver
-- External Docker network `mysql` และ network ของ Traefik จริง
+- External Docker network `de-net` สำหรับ MySQL และ `proxy` สำหรับ Traefik
 - MySQL 8.0.16 ขึ้นไป (แนะนำ 8.4), database/user สำหรับแอปนี้โดยเฉพาะ
 - DNS ของโดเมนชี้มายัง Traefik และผู้ดูแลตรวจว่ากำหนด router ไม่ชนระบบอื่น
 - API Key EasySlip v2, บัญชีรับเงินจริง, ราคาและไซซ์จริง, ภาพ 15 ชุด, QR LINE และเบอร์ติดต่อจริง
@@ -15,8 +15,8 @@ PHP 8.4 + Apache, PDO/MySQL 8, Bootstrap 5, Vanilla JS, Select2 และ SweetA
 
 ```sh
 docker version
-docker network inspect mysql
-docker network inspect YOUR_TRAEFIK_NETWORK
+docker network inspect de-net
+docker network inspect proxy
 ```
 
 ## 2. เตรียม MySQL แบบ least privilege
@@ -48,14 +48,15 @@ php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'
 
 | ตัวแปร | ความหมาย |
 | --- | --- |
+| IMAGE_TAG | tag ที่เผยแพร่แล้วของ `ghcr.io/5dmax/order.tnoi.me` ค่าเริ่มต้น `main`; production ควรใช้ release tag ที่ไม่ถูกเขียนทับ |
 | APP_ENV | `production` |
 | APP_URL | URL จริงขึ้นต้น `https://` |
 | APP_TIMEZONE | `Asia/Bangkok` |
 | APP_KEY | ค่าสุ่มอย่างน้อย 32 ตัวอักษร แนะนำ hex 64 ตัว |
 | APP_TRUSTED_PROXIES | IP/CIDR ของ Traefik ที่แอปเชื่อถือ คั่นด้วย comma |
-| DB_HOST / DB_PORT | DNS ของ shared MySQL บน network `mysql` / 3306 |
+| DB_HOST / DB_PORT | DNS ของ shared MySQL บน network `de-net` / 3306 |
 | DB_DATABASE / DB_USERNAME / DB_PASSWORD | database ใหม่และ runtime user |
-| TRAEFIK_NETWORK | ชื่อ external network จริง |
+| TRAEFIK_NETWORK | `proxy` |
 | TRAEFIK_HOST | โดเมนอย่างเดียว ไม่ใส่ `https://` |
 | TRAEFIK_ROUTER | ชื่อ router/service เฉพาะแอป ไม่ซ้ำระบบอื่น |
 | TRAEFIK_ENTRYPOINT | ชื่อ HTTPS entrypoint ที่มีอยู่ |
@@ -66,13 +67,15 @@ php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'
 
 `.env` เป็นรูปแบบ KEY=VALUE; ห้ามใส่ inline comment หรือ multiline secret ค่า Compose ที่มี `$` ต้อง escape ตาม Compose ห้าม commit `.env`
 
-## 4. Build และเริ่มระบบ
+## 4. ดึง image และเริ่มระบบ
+
+Compose ใช้ image `ghcr.io/5dmax/order.tnoi.me:${IMAGE_TAG:-main}` ต้อง build และ push image จาก Dockerfile นี้ไปยัง GHCR ก่อน deploy หาก package เป็น private ให้ login ด้วยบัญชีที่มีสิทธิ์อ่าน package โดยใช้ `docker login ghcr.io` การแก้ source ในเครื่อง deploy จะไม่มีผลจนกว่าจะเผยแพร่ image รุ่นใหม่
 
 Libraries อยู่ใน `public/assets/vendor` พร้อมเวอร์ชันและ SHA-256 ใน `manifest.json` แล้ว ไม่มี CDN ตอนใช้งานจริง หากต้องดาวน์โหลดคืนใช้ `python3 bin/fetch-assets.py` บนเครื่องพัฒนา (ต้องมีอินเทอร์เน็ต)
 
 ```sh
 docker compose config --quiet
-docker compose build --pull
+docker compose pull app
 docker compose up -d
 ```
 
@@ -195,10 +198,10 @@ docker compose exec app chown -R www-data:www-data storage/uploads
 
 1. สำรอง DB/uploads/env และเก็บ image เวอร์ชันปัจจุบันด้วย tag ที่ระบุรุ่น
 2. ตรวจ source และ tests ในสภาพแวดล้อมทดสอบ โดยเฉพาะ migration ใหม่
-3. `docker compose build --pull` แล้ว deploy ในช่วงที่เหมาะสม
+3. เผยแพร่ image รุ่นใหม่ ตั้ง `IMAGE_TAG` ใน `.env` แล้วรัน `docker compose pull app` ในช่วงที่เหมาะสม
 4. รัน migration ด้วย migrator credentials, seed เฉพาะเมื่อจำเป็น
 5. `docker compose up -d` และตรวจ health/login/order/payment
-6. Rollback โค้ดไป revision/tag เดิมและ rebuild/recreate; ถ้า schema ไม่ backward-compatible ต้อง restore backup ที่สอดคล้องกันและวางแผนรายการหลัง backup กับผู้รับผิดชอบก่อน ห้ามย้อนฐานข้อมูลโดยไม่ตรวจข้อมูลเงินจริง
+6. Rollback โดยตั้ง `IMAGE_TAG` กลับเป็น release tag เดิม แล้ว `docker compose pull app` และ `docker compose up -d`; ถ้า schema ไม่ backward-compatible ต้อง restore backup ที่สอดคล้องกันและวางแผนรายการหลัง backup กับผู้รับผิดชอบก่อน ห้ามย้อนฐานข้อมูลโดยไม่ตรวจข้อมูลเงินจริง
 
 OPcache ไม่ตรวจ timestamp ใน production ต้อง recreate/restart หลังเปลี่ยน source
 
