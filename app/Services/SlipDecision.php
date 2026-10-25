@@ -17,4 +17,21 @@ final class SlipDecision {
   try{$amount=Money::parse($d['amountInSlip']??null);if($amount!==Money::parse($s['amount']['amount']??null)||$amount!==Money::parse($s['amount']['local']['amount']??null))return $result;}catch(\InvalidArgumentException){return $result;}
   return ['status'=>$amount===$total?'verified':($amount<$total?'underpaid':'overpaid'),'reason'=>$amount===$total?'ตรวจสอบสำเร็จ':'ยอดไม่ตรง กรุณาติดต่อเจ้าหน้าที่','amount'=>$amount,'reference'=>$s['transRef']];
  }
+ public static function evaluatePayload(array $r,int $total):array {
+  $result=['status'=>'review','reason'=>'ข้อมูลไม่ครบถ้วน รอเจ้าหน้าที่ตรวจสอบ','amount'=>null,'reference'=>null];
+  if(($r['success']??null)!==true)return $result;
+  $d=$r['data']??[];
+  $transRef=$d['transRef']??$d['rawSlip']['transRef']??null;
+  if(is_string($transRef)&&preg_match('/^[A-Za-z0-9_-]{1,128}$/D',$transRef)){$result['reference']=$transRef;}
+  if(($d['isDuplicate']??null)===true){return array_replace($result,['status'=>'duplicate','reason'=>'สลิปซ้ำ']);}
+  $amountRaw=$d['amountInSlip']??null;
+  if($amountRaw===null)return $result;
+  try{$amount=Money::parse((string)number_format((float)$amountRaw,2,'.',''));}catch(\InvalidArgumentException){return $result;}
+  $result['amount']=$amount;
+  $matched=$d['matchedAccount']??null;
+  if(!is_array($matched)){return array_replace($result,['status'=>'rejected','reason'=>'บัญชีผู้รับไม่ตรงกับที่ลงทะเบียน']);}
+  if($result['reference']===null)return $result;
+  if($amount===$total){return ['status'=>'verified','reason'=>'ตรวจสอบสำเร็จ','amount'=>$amount,'reference'=>$result['reference']];}
+  return ['status'=>$amount<$total?'underpaid':'overpaid','reason'=>'ยอดไม่ตรง กรุณาติดต่อเจ้าหน้าที่','amount'=>$amount,'reference'=>$result['reference']];
+ }
 }

@@ -20,4 +20,5 @@ class EasySlip {
   return $value;
  }
  public function verify(string $file,int $satang,string $reference):array{return $this->request('POST','/verify/bank',['image'=>new \CURLFile($file,'image/jpeg','slip.jpg'),'matchAccount'=>'true','matchAmount'=>Money::format($satang),'checkDuplicate'=>'true','remark'=>$reference],true);}
+ public function verifyPayload(string $payload,int $satang,string $reference):array{return $this->request('POST','/verify/bank',['payload'=>$payload,'matchAmount'=>Money::format($satang),'matchAccount'=>'true','checkDuplicate'=>'true','remark'=>$reference]);}
 }

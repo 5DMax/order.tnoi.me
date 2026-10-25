@@ -17,9 +17,12 @@ if($method==='GET'&&$path==='/privacy'){Http::view('privacy');exit;}
 if($method==='GET'&&$path==='/admin'){Http::view(Security::user()?'admin':'login');exit;}
 if($method==='GET'&&$path==='/api/catalog')Http::json(Orders::catalog());
 if($method==='POST'&&$path==='/api/orders'){Security::rate('order',10,600);Http::json(Orders::create(Http::input()),201);}
-if($method==='POST'&&in_array($path,['/api/order','/api/slip'],true)){
+if($method==='POST'&&in_array($path,['/api/order','/api/slip','/api/slip-payload'],true)){
  Security::rate('order_access',60,300);$a=Http::input();$o=Orders::access(Http::text($a,'reference',1,40),Http::text($a,'token',64,64));
- if($path==='/api/order')Http::json(Orders::detail($o));Security::rate('slip',10,600);Http::json(Payments::verify($o,$_FILES['image']??[],Http::text($a,'idempotency_key',64,64)));
+ if($path==='/api/order')Http::json(Orders::detail($o));
+ Security::rate('slip',10,600);
+ if($path==='/api/slip-payload')Http::json(Payments::verifyByPayload($o,Http::text($a,'payload',10,4096),Http::text($a,'idempotency_key',64,64)));
+ Http::json(Payments::verify($o,$_FILES['image']??[],Http::text($a,'idempotency_key',64,64)));
 }
 if($method==='POST'&&$path==='/api/login')Http::json(Admin::login(Http::input()));
 if($method==='POST'&&$path==='/api/logout'){$_SESSION=[];session_regenerate_id(true);Http::json(['ok'=>true]);}
@@ -29,4 +32,5 @@ if(preg_match('#^/api/admin/(dashboard|orders|products|payments|bank|contact|use
 if($method==='GET'&&preg_match('#^/media/product/(\d+)/(\d+)$#D',$path,$m)){$f=DB::one('SELECT filename FROM zone_product_images WHERE zone_id=? AND product_type_id=?',[$m[1],$m[2]]);Uploads::serve($f['filename']??'');}
 if($method==='GET'&&$path==='/media/line'){Uploads::serve(DB::settings()['line_qr']??'');}
 if($method==='GET'&&preg_match('#^/admin/slip/(\d+)$#D',$path,$m)){Security::require('payments.view');$p=DB::one('SELECT filename FROM payment_attempts WHERE id=?',[$m[1]]);Uploads::serve($p['filename']??'');}
+if($method==='GET'&&$path==='/api/export/orders'){Security::require('orders.view');(new \App\Services\ExcelExport())->orders($_GET);exit;}
 Http::json(['error'=>'ไม่พบหน้า'],404);
