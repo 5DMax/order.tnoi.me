@@ -20,7 +20,8 @@ final class ExcelExport {
    for($i=0;$i<3;$i++)$args[]='%'.mb_substr((string)$filters['q'],0,100).'%';
   }
   $sql=implode(' AND ',$where);
-  $rows=DB::all("SELECT o.id,o.reference,o.customer_name,o.phone,o.address,o.total_satang,o.quantity,o.status,o.created_at,o.paid_at,z.name zone,p.name province FROM orders o JOIN zones z ON z.id=o.zone_id JOIN provinces p ON p.id=o.province_id WHERE $sql ORDER BY o.id DESC LIMIT 5000",$args);
+  $rows=DB::all("SELECT o.id,o.reference,o.customer_name,o.phone,o.address,o.total_satang,o.quantity,o.status,o.created_at,o.paid_at,z.name zone,p.name province FROM orders o JOIN zones z ON z.id=o.zone_id JOIN provinces p ON p.id=o.province_id WHERE $sql ORDER BY o.id DESC LIMIT 5001",$args);
+  if(count($rows)>5000)throw new \InvalidArgumentException('ข้อมูลเกิน 5,000 คำสั่งซื้อ กรุณากรองช่วงวันที่หรือกลุ่มให้แคบลง');
   $orderIds=array_column($rows,'id');$items=[];
   if($orderIds){
    $placeholders=implode(',',array_fill(0,count($orderIds),'?'));
@@ -34,51 +35,56 @@ final class ExcelExport {
   header('Cache-Control: max-age=0');
   echo $xml;
  }
- private function buildXml(array $rows,array $items,array $statusLabels):string {
-  $xml='<?xml version="1.0" encoding="UTF-8"?>'."\n";
-  $xml.='<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:x="urn:schemas-microsoft-com:office:excel">';
-  $xml.='<Styles>';
-  $xml.='<Style ss:ID="header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1E3A5F" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>';
-  $xml.='<Style ss:ID="total"><Font ss:Bold="1"/><NumberFormat ss:Format="#,##0.00"/></Style>';
-  $xml.='<Style ss:ID="money"><NumberFormat ss:Format="#,##0.00"/></Style>';
-  $xml.='<Style ss:ID="date"><NumberFormat ss:Format="yyyy-mm-dd hh:mm"/></Style>';
-  $xml.='<Style ss:ID="wrap"><Alignment ss:WrapText="1"/></Style>';
-  $xml.='</Styles>';
-  $xml.='<Worksheet ss:Name="คำสั่งซื้อ"><Table>';
-  $cols=[80,120,100,130,180,80,60,80,70,80,100,300];
-  foreach($cols as $w)$xml.="<Column ss:Width=\"$w\"/>";
-  $headers=['เลขคำสั่งซื้อ','วันที่สั่ง','ชำระเงินเมื่อ','ชื่อผู้สั่ง','เบอร์โทร','กลุ่ม','จังหวัด','สถานะ','จำนวน (ตัว)','ยอดรวม (บาท)','รายการสินค้า','ที่อยู่จัดส่ง'];
-  $xml.='<Row ss:Height="22">';
-  foreach($headers as $h)$xml.='<Cell ss:StyleID="header"><Data ss:Type="String">'.htmlspecialchars($h,ENT_XML1).'</Data></Cell>';
+ public function buildXml(array $rows,array $items,array $statusLabels):string {
+  $xml='<?xml version="1.0" encoding="UTF-8"?>';
+  $xml.='<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:x="urn:schemas-microsoft-com:office:excel"><Styles><Style ss:ID="header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1E3A5F" ss:Pattern="Solid"/></Style><Style ss:ID="money"><NumberFormat ss:Format="#,##0.00"/></Style><Style ss:ID="wrap"><Alignment ss:WrapText="1" ss:Vertical="Top"/></Style></Styles>';
+  $groups=[];$summary=[];
+  foreach($rows as $row){
+   $zone=(string)$row['zone'];
+   $groups[$zone]??=[];
+   foreach($items[$row['id']]??[] as $item){
+    $qty=(int)$item['quantity'];$unit=(int)$item['unit_satang'];
+    $status=$statusLabels[$row['status']]??$row['status'];
+    $groups[$zone][]=[(string)$row['reference'],substr($row['created_at'],0,16),(string)$row['customer_name'],(string)$row['phone'],$zone,(string)$row['province'],$status,(string)$item['product_name'],(string)$item['size'],$qty,['money'=>Money::format($unit)],['money'=>Money::format($unit*$qty)],(string)$row['address']];
+    $key=json_encode([$zone,$row['province'],$item['product_name'],$item['size'],$row['status']],JSON_THROW_ON_ERROR);
+    $summary[$key]??=[$zone,(string)$row['province'],(string)$item['product_name'],(string)$item['size'],$status,0];
+    $summary[$key][5]+=$qty;
+   }
+  }
+  ksort($groups,SORT_NATURAL);
+  $headers=['เลขคำสั่งซื้อ','วันที่สั่ง','ผู้สั่ง','เบอร์โทร','กลุ่ม','จังหวัด','สถานะ','ประเภทเสื้อ','ไซซ์','จำนวน (ตัว)','ราคาต่อตัว (บาท)','ยอดรายการ (บาท)','ที่อยู่จัดส่ง'];
+  $used=['สรุป'=>true];
+  if(!$groups)$groups['รายการ']=[];
+  foreach($groups as $zone=>$details){
+   $base=trim(preg_replace('/[\\\\\/?:*\[\]\x00-\x1F]/u',' ',(string)$zone)," '");
+   $base=mb_substr($base!==''?$base:'กลุ่ม',0,31);$name=$base;$suffix=1;
+   while(isset($used[mb_strtolower($name)])){$tail=' ('.++$suffix.')';$name=mb_substr($base,0,31-mb_strlen($tail)).$tail;}
+   $used[mb_strtolower($name)]=true;
+   $xml.=$this->sheet($name,$headers,$details,[130,110,150,100,100,110,100,110,65,85,110,110,250]);
+  }
+  $summary=array_values($summary);
+  usort($summary,static fn($a,$b)=>array_slice($a,0,5)<=>array_slice($b,0,5));
+  $xml.=$this->sheet('สรุป',['กลุ่ม','จังหวัด','ประเภทเสื้อ','ไซซ์','สถานะ','จำนวน (ตัว)'],$summary,[110,130,120,75,110,100]);
+  return $xml.'</Workbook>';
+ }
+ private function sheet(string $name,array $headers,array $rows,array $widths):string {
+  $xml='<Worksheet ss:Name="'.$this->escape($name).'"><Table>';
+  foreach($widths as $width)$xml.='<Column ss:Width="'.$width.'"/>';
+  $xml.='<Row ss:Height="28">';
+  foreach($headers as $header)$xml.='<Cell ss:StyleID="header"><Data ss:Type="String">'.$this->escape($header).'</Data></Cell>';
   $xml.='</Row>';
   foreach($rows as $row){
-   $orderItems=$items[$row['id']]??[];
-   $itemStr=implode(', ',array_map(fn($i)=>$i['product_name'].'/'.$i['size'].' x'.$i['quantity'],$orderItems));
-   $xml.='<Row ss:Height="18">';
-   $xml.='<Cell><Data ss:Type="String">'.htmlspecialchars($row['reference'],ENT_XML1).'</Data></Cell>';
-   $xml.='<Cell><Data ss:Type="String">'.htmlspecialchars(substr($row['created_at'],0,16),ENT_XML1).'</Data></Cell>';
-   $xml.='<Cell><Data ss:Type="String">'.htmlspecialchars(substr($row['paid_at']??'',0,16),ENT_XML1).'</Data></Cell>';
-   $xml.='<Cell><Data ss:Type="String">'.htmlspecialchars($row['customer_name'],ENT_XML1).'</Data></Cell>';
-   $xml.='<Cell><Data ss:Type="String">'.htmlspecialchars($row['phone'],ENT_XML1).'</Data></Cell>';
-   $xml.='<Cell><Data ss:Type="String">'.htmlspecialchars($row['zone'],ENT_XML1).'</Data></Cell>';
-   $xml.='<Cell><Data ss:Type="String">'.htmlspecialchars($row['province'],ENT_XML1).'</Data></Cell>';
-   $xml.='<Cell><Data ss:Type="String">'.htmlspecialchars($statusLabels[$row['status']]??$row['status'],ENT_XML1).'</Data></Cell>';
-   $xml.='<Cell><Data ss:Type="Number">'.(int)$row['quantity'].'</Data></Cell>';
-   $xml.='<Cell ss:StyleID="money"><Data ss:Type="Number">'.number_format((int)$row['total_satang']/100,2,'.','').'</Data></Cell>';
-   $xml.='<Cell ss:StyleID="wrap"><Data ss:Type="String">'.htmlspecialchars($itemStr,ENT_XML1).'</Data></Cell>';
-   $xml.='<Cell ss:StyleID="wrap"><Data ss:Type="String">'.htmlspecialchars($row['address'],ENT_XML1).'</Data></Cell>';
+   $xml.='<Row>';
+   foreach($row as $value){
+    $money=is_array($value);$numeric=$money||is_int($value);
+    $xml.='<Cell ss:StyleID="'.($money?'money':'wrap').'"><Data ss:Type="'.($numeric?'Number':'String').'">'.$this->escape((string)($money?$value['money']:$value)).'</Data></Cell>';
+   }
    $xml.='</Row>';
   }
-  $totalSatang=array_sum(array_column($rows,'total_satang'));
-  $totalQty=array_sum(array_column($rows,'quantity'));
-  $xml.='<Row ss:Height="20">';
-  $xml.='<Cell ss:StyleID="total"><Data ss:Type="String">รวมทั้งหมด '.count($rows).' คำสั่งซื้อ</Data></Cell>';
-  $xml.='<Cell/><Cell/><Cell/><Cell/><Cell/><Cell/><Cell/>';
-  $xml.='<Cell ss:StyleID="total"><Data ss:Type="Number">'.$totalQty.'</Data></Cell>';
-  $xml.='<Cell ss:StyleID="total"><Data ss:Type="Number">'.number_format($totalSatang/100,2,'.','').'</Data></Cell>';
-  $xml.='<Cell/><Cell/>';
-  $xml.='</Row>';
-  $xml.='</Table></Worksheet></Workbook>';
-  return $xml;
+  return $xml.'</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane><ActivePane>2</ActivePane></WorksheetOptions></Worksheet>';
+ }
+ private function escape(string $value):string {
+  $value=preg_replace('/[^\x{9}\x{A}\x{D}\x{20}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]/u','',$value)??'';
+  return htmlspecialchars($value,ENT_XML1|ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
  }
 }

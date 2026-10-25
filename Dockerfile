@@ -1,5 +1,5 @@
 FROM php:8.4-apache-bookworm
-RUN apt-get update && apt-get install -y --no-install-recommends libfreetype6-dev libjpeg62-turbo-dev libpng-dev libwebp-dev libonig-dev libcurl4-openssl-dev curl \
+RUN apt-get update && apt-get install -y --no-install-recommends libfreetype6-dev libjpeg62-turbo-dev libpng-dev libwebp-dev libonig-dev libcurl4-openssl-dev curl zbar-tools coreutils \
  && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
  && docker-php-ext-install -j"$(nproc)" pdo_mysql gd mbstring opcache curl \
  && a2enmod rewrite headers \

@@ -4,34 +4,31 @@ namespace App\Services;
 final class SlipDecision {
  public static function evaluate(array $r,array $bank,int $total):array {
   $result=['status'=>'review','reason'=>'ข้อมูลไม่ครบถ้วน รอเจ้าหน้าที่ตรวจสอบ','amount'=>null,'reference'=>null];
-  if(($r['success']??null)!==true)return $result;
+  if(($r['success']??null)!==true){
+   if(($r['error']['code']??null)==='QR_UNREADABLE')$result['reason']='อ่าน QR บนสลิปไม่สำเร็จ เก็บรูปไว้ให้เจ้าหน้าที่ตรวจสอบแล้ว';
+   return $result;
+  }
   $d=$r['data']??[];$a=$d['matchedAccount']??null;$s=$d['rawSlip']??[];
   if(is_string($s['transRef']??null)&&preg_match('/^[A-Za-z0-9_-]{1,128}$/D',$s['transRef']))$result['reference']=$s['transRef'];
   try{$result['amount']=Money::parse($d['amountInSlip']??null);}catch(\InvalidArgumentException){}
   if(($d['isDuplicate']??null)===true)return array_replace($result,['status'=>'duplicate','reason'=>'สลิปซ้ำ']);
-  if(($d['isDuplicate']??null)!==false || !is_array($a))return $result;
+  if(($d['isDuplicate']??null)!==false)return $result;
   $number=static fn($v)=>preg_replace('/[\s-]/','',(string)$v);
-  if($number($a['bankNumber']??'')!==$number($bank['bank_number'])||($a['bank']['code']??null)!==$bank['bank_code'])return array_replace($result,['status'=>'rejected','reason'=>'บัญชีหรือธนาคารผู้รับไม่ตรง']);
+  $confirmed=false;
+  if(is_array($a)){
+   if($number($a['bankNumber']??'')!==$number($bank['bank_number'])||($a['bank']['code']??null)!==$bank['bank_code'])return array_replace($result,['status'=>'rejected','reason'=>'บัญชีหรือธนาคารผู้รับไม่ตรง']);
+   $confirmed=true;
+  }
+  $receiver=$s['receiver']['account']['bank']??[];
+  $rawNumber=$number($receiver['account']??'');
+  if(($receiver['type']??null)==='BANKAC'&&preg_match('/^[0-9]{6,40}$/D',$rawNumber)){
+   if($rawNumber!==$number($bank['bank_number']))return array_replace($result,['status'=>'rejected','reason'=>'เลขบัญชีผู้รับไม่ตรง']);
+   if(($s['receiver']['bank']['id']??null)===$bank['bank_code'])$confirmed=true;
+  }
   if(isset($s['receiver']['bank']['id']) && $s['receiver']['bank']['id']!==$bank['bank_code'])return array_replace($result,['status'=>'rejected','reason'=>'ธนาคารในสลิปขัดแย้ง']);
+  if(!$confirmed)return array_replace($result,['reason'=>'ไม่สามารถยืนยันเลขบัญชีผู้รับเต็มได้ รอเจ้าหน้าที่ตรวจสอบ']);
   if(($s['amount']['local']['currency']??null)!=='THB'||!is_string($s['transRef']??null)||!preg_match('/^[A-Za-z0-9_-]{1,128}$/D',$s['transRef']))return $result;
   try{$amount=Money::parse($d['amountInSlip']??null);if($amount!==Money::parse($s['amount']['amount']??null)||$amount!==Money::parse($s['amount']['local']['amount']??null))return $result;}catch(\InvalidArgumentException){return $result;}
   return ['status'=>$amount===$total?'verified':($amount<$total?'underpaid':'overpaid'),'reason'=>$amount===$total?'ตรวจสอบสำเร็จ':'ยอดไม่ตรง กรุณาติดต่อเจ้าหน้าที่','amount'=>$amount,'reference'=>$s['transRef']];
- }
- public static function evaluatePayload(array $r,int $total):array {
-  $result=['status'=>'review','reason'=>'ข้อมูลไม่ครบถ้วน รอเจ้าหน้าที่ตรวจสอบ','amount'=>null,'reference'=>null];
-  if(($r['success']??null)!==true)return $result;
-  $d=$r['data']??[];
-  $transRef=$d['transRef']??$d['rawSlip']['transRef']??null;
-  if(is_string($transRef)&&preg_match('/^[A-Za-z0-9_-]{1,128}$/D',$transRef)){$result['reference']=$transRef;}
-  if(($d['isDuplicate']??null)===true){return array_replace($result,['status'=>'duplicate','reason'=>'สลิปซ้ำ']);}
-  $amountRaw=$d['amountInSlip']??null;
-  if($amountRaw===null)return $result;
-  try{$amount=Money::parse((string)number_format((float)$amountRaw,2,'.',''));}catch(\InvalidArgumentException){return $result;}
-  $result['amount']=$amount;
-  $matched=$d['matchedAccount']??null;
-  if(!is_array($matched)){return array_replace($result,['status'=>'rejected','reason'=>'บัญชีผู้รับไม่ตรงกับที่ลงทะเบียน']);}
-  if($result['reference']===null)return $result;
-  if($amount===$total){return ['status'=>'verified','reason'=>'ตรวจสอบสำเร็จ','amount'=>$amount,'reference'=>$result['reference']];}
-  return ['status'=>$amount<$total?'underpaid':'overpaid','reason'=>'ยอดไม่ตรง กรุณาติดต่อเจ้าหน้าที่','amount'=>$amount,'reference'=>$result['reference']];
  }
 }

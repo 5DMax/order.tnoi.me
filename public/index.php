@@ -17,11 +17,10 @@ if($method==='GET'&&$path==='/privacy'){Http::view('privacy');exit;}
 if($method==='GET'&&$path==='/admin'){Http::view(Security::user()?'admin':'login');exit;}
 if($method==='GET'&&$path==='/api/catalog')Http::json(Orders::catalog());
 if($method==='POST'&&$path==='/api/orders'){Security::rate('order',10,600);Http::json(Orders::create(Http::input()),201);}
-if($method==='POST'&&in_array($path,['/api/order','/api/slip','/api/slip-payload'],true)){
+if($method==='POST'&&in_array($path,['/api/order','/api/slip'],true)){
  Security::rate('order_access',60,300);$a=Http::input();$o=Orders::access(Http::text($a,'reference',1,40),Http::text($a,'token',64,64));
  if($path==='/api/order')Http::json(Orders::detail($o));
  Security::rate('slip',10,600);
- if($path==='/api/slip-payload')Http::json(Payments::verifyByPayload($o,Http::text($a,'payload',10,4096),Http::text($a,'idempotency_key',64,64)));
  Http::json(Payments::verify($o,$_FILES['image']??[],Http::text($a,'idempotency_key',64,64)));
 }
 if($method==='POST'&&$path==='/api/login')Http::json(Admin::login(Http::input()));

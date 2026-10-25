@@ -5,7 +5,7 @@ class EasySlip {
  public function request(string $method,string $path,?array $data=null,bool $multipart=false):array{
   $key=getenv('EASYSLIP_API_KEY');if(!$key)return ['success'=>false,'error'=>['code'=>'MISSING_API_KEY']];
   $c=curl_init('https://api.easyslip.com/v2'.$path);$headers=['Authorization: Bearer '.$key,'Accept: application/json'];if(!$multipart)$headers[]='Content-Type: application/json';
-  curl_setopt_array($c,[CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_HTTPHEADER=>$headers,CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>25,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_SSL_VERIFYPEER=>true]);if($data!==null)curl_setopt($c,CURLOPT_POSTFIELDS,$multipart?$data:json_encode($data,JSON_THROW_ON_ERROR));
+  curl_setopt_array($c,[CURLOPT_CUSTOMREQUEST=>$method,CURLOPT_HTTPHEADER=>$headers,CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>25,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS,CURLOPT_SSL_VERIFYPEER=>true]);if($data!==null)curl_setopt($c,CURLOPT_POSTFIELDS,$multipart?$data:self::encodeJson($data));
   $raw=curl_exec($c);$http=curl_getinfo($c,CURLINFO_RESPONSE_CODE);curl_close($c);
   if($raw===false)return ['success'=>false,'error'=>['code'=>'TIMEOUT_OR_NETWORK']];
   if(strlen($raw)>1048576)return ['success'=>false,'error'=>['code'=>'INVALID_RESPONSE']];
@@ -20,5 +20,16 @@ class EasySlip {
   return $value;
  }
  public function verify(string $file,int $satang,string $reference):array{return $this->request('POST','/verify/bank',['image'=>new \CURLFile($file,'image/jpeg','slip.jpg'),'matchAccount'=>'true','matchAmount'=>Money::format($satang),'checkDuplicate'=>'true','remark'=>$reference],true);}
- public function verifyPayload(string $payload,int $satang,string $reference):array{return $this->request('POST','/verify/bank',['payload'=>$payload,'matchAmount'=>Money::format($satang),'matchAccount'=>'true','checkDuplicate'=>'true','remark'=>$reference]);}
+ public static function encodeJson(array $data):string {
+  $fields=[];
+  foreach($data as $key=>$value){
+   $encoded=$key==='matchAmount'?Money::format(Money::parse($value)):json_encode($value,JSON_THROW_ON_ERROR);
+   $fields[]=json_encode((string)$key,JSON_THROW_ON_ERROR).':'.$encoded;
+  }
+  return '{'.implode(',',$fields).'}';
+ }
+ public function verifyPayload(string $payload,int $satang,string $reference):array {
+  $payload=QrPayload::fromOutput($payload);
+  return $this->request('POST','/verify/bank',['payload'=>$payload,'matchAmount'=>Money::format($satang),'matchAccount'=>false,'checkDuplicate'=>true,'remark'=>$reference]);
+ }
 }

@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace App\Services;
 use App\Core\{DB,Http,Security};
 final class Orders {
- public static function catalog():array{$bank=DB::one('SELECT * FROM bank_settings WHERE id=1');$settings=DB::settings();return ['ready'=>(bool)($bank&&$bank['bank_number']&&$bank['bank_code']&&$bank['name_th']&&$bank['easyslip_account_id']&&($settings['privacy_ready']??'0')==='1'),'zones'=>DB::all('SELECT * FROM zones ORDER BY id'),'provinces'=>DB::all('SELECT * FROM provinces ORDER BY id'),'types'=>DB::all('SELECT * FROM product_types ORDER BY id'),'variants'=>DB::all('SELECT * FROM product_variants ORDER BY id'),'images'=>DB::all('SELECT zone_id,product_type_id,filename FROM zone_product_images')];}
+ public static function catalog():array{$bank=DB::one('SELECT * FROM bank_settings WHERE id=1');$settings=DB::settings();return ['ready'=>(bool)($bank&&$bank['bank_number']&&$bank['bank_code']&&$bank['name_th']&&($settings['privacy_ready']??'0')==='1'),'zones'=>DB::all('SELECT * FROM zones ORDER BY id'),'provinces'=>DB::all('SELECT * FROM provinces ORDER BY id'),'types'=>DB::all('SELECT * FROM product_types ORDER BY id'),'variants'=>DB::all('SELECT * FROM product_variants ORDER BY id'),'images'=>DB::all('SELECT zone_id,product_type_id,filename FROM zone_product_images')];}
  public static function create(array $a):array {
   $key=Http::text($a,'idempotency_key',64,64);if(!ctype_xdigit($key))throw new \InvalidArgumentException('รหัสคำขอไม่ถูกต้อง');
   $name=Http::text($a,'name',2,150);$phone=Http::text($a,'phone',9,20);if(!preg_match('/^\+?[0-9]{9,15}$/D',$phone))throw new \InvalidArgumentException('เบอร์โทรไม่ถูกต้อง');$address=Http::text($a,'address',10,2000);
@@ -16,7 +16,7 @@ final class Orders {
    // Serialize checkout setup and idempotency; external calls never run here.
    $bank=DB::one('SELECT * FROM bank_settings WHERE id=1 FOR UPDATE');
    if($old=DB::one('SELECT reference,request_hash FROM orders WHERE idempotency_key=?',[$key])){if(!hash_equals($old['request_hash'],$hash))throw new \InvalidArgumentException('รหัสคำขอนี้ใช้กับข้อมูลอื่นแล้ว');return ['reference'=>$old['reference'],'token'=>Security::token($key)];}
-   $settings=DB::settings();if(!$bank||!$bank['bank_number']||!$bank['bank_code']||!$bank['name_th']||!$bank['easyslip_account_id']||($settings['privacy_ready']??'0')!=='1')throw new \InvalidArgumentException('ระบบยังไม่พร้อมรับคำสั่งซื้อ กรุณาติดต่อเจ้าหน้าที่');
+   $settings=DB::settings();if(!$bank||!$bank['bank_number']||!$bank['bank_code']||!$bank['name_th']||($settings['privacy_ready']??'0')!=='1')throw new \InvalidArgumentException('ระบบยังไม่พร้อมรับคำสั่งซื้อ กรุณาติดต่อเจ้าหน้าที่');
    if(!DB::one('SELECT id FROM provinces WHERE id=? AND zone_id=?',[$province,$zone]))throw new \InvalidArgumentException('จังหวัดไม่ตรงกับกลุ่ม');
    $rows=[];$total=0;$count=0;
    foreach($normalized as $id=>$qty){$v=DB::one('SELECT v.*,p.name,p.active AS product_active FROM product_variants v JOIN product_types p ON p.id=v.product_type_id WHERE v.id=? FOR SHARE',[$id]);if(!$v||!$v['active']||!$v['product_active']||!$v['price_satang'])throw new \InvalidArgumentException('สินค้าไม่มีราคาหรือปิดขาย');$total+=(int)$v['price_satang']*$qty;$count+=$qty;$rows[]=[$v,$qty];}

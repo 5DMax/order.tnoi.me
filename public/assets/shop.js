@@ -13,16 +13,8 @@ $id('payment-detail').innerHTML=`<div class="status-pill">${escapeHTML(statusLab
 $id('lookup').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{access=Object.fromEntries(new FormData(e.target));await openOrder();});};
 $id('copy-link').onclick=e=>busy(e.target,async()=>{await navigator.clipboard.writeText($id('access-link').value);await Swal.fire({toast:true,position:'top',icon:'success',title:'คัดลอกแล้ว',timer:1800,showConfirmButton:false});});
 $id('refresh-order').onclick=e=>busy(e.target,openOrder);
-$id('slip-mode-payload').onclick=()=>{$id('slip-payload-section').hidden=false;$id('slip-image-section').hidden=true;};
-$id('slip-mode-image').onclick=()=>{$id('slip-payload-section').hidden=true;$id('slip-image-section').hidden=false;};
 $id('slip').addEventListener('change',()=>{slipKey=randomKey();});preview($id('slip'),$id('slip-preview'));
 $id('slip-form').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{
- const payload=$id('qr-payload').value.trim();
- if(payload){
-  if(payload.length<10||payload.length>4096)throw Error('QR Payload ไม่ถูกต้อง');
-  await api('/api/slip-payload',{...access,payload,idempotency_key:slipKey});
- }else{
-  const fd=new FormData(e.target);if(fd.get('image').size>4194304)throw Error('ภาพต้องไม่เกิน 4 MB');Object.entries({...access,idempotency_key:slipKey}).forEach(([k,v])=>fd.append(k,v));await api('/api/slip',fd);
- }
+ const fd=new FormData(e.target);const image=fd.get('image');if(!image?.size||image.size>4194304)throw Error('กรุณาเลือกรูปสลิปไม่เกิน 4 MB');Object.entries({...access,idempotency_key:slipKey}).forEach(([k,v])=>fd.append(k,v));await api('/api/slip',fd);
  slipKey=randomKey();await openOrder();await Swal.fire({icon:'success',title:'ส่งสลิปแล้ว',text:'ตรวจสอบสถานะล่าสุดด้านบน'});});};
 (async()=>{try{catalog=await api('/api/catalog');$id('not-ready').hidden=catalog.ready;$id('zone').innerHTML='<option value="">เลือกกลุ่ม</option>'+catalog.zones.map(z=>`<option value="${z.id}">${escapeHTML(z.name)}</option>`).join('');$('#zone').on('change',()=>{$id('province').innerHTML='<option value="">เลือกจังหวัด</option>'+catalog.provinces.filter(p=>String(p.zone_id)===$id('zone').value).map(p=>`<option value="${p.id}">${escapeHTML(p.name)}</option>`).join('');$('#province').trigger('change');productList();});showStep();if(location.hash){const p=new URLSearchParams(location.hash.slice(1));if(p.has('reference')&&p.has('token')){access={reference:p.get('reference'),token:p.get('token')};await openOrder();}}}catch(e){Swal.fire({icon:'error',title:'ไม่สามารถโหลดข้อมูล',text:e.message});}})();
