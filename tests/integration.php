@@ -29,6 +29,7 @@ try{
  test(DB::one('SELECT version FROM privacy_acknowledgements WHERE order_id=?',[$order['id']])['version']==='2026-10-20-v1','privacy version recorded');
  $_SESSION=[];test(!Security::can('orders.view'),'anonymous has no privileges');
  DB::query("INSERT INTO users(username,password_hash,role_id) VALUES('test-support',?,3)",[password_hash(bin2hex(random_bytes(16)),PASSWORD_ARGON2ID)]);$uid=(int)DB::connection()->lastInsertId();$_SESSION=['uid'=>$uid,'sv'=>1];test(!Security::can('orders.view'),'support denied without grant');DB::query("INSERT INTO role_permissions(role_id,permission_id) SELECT 3,id FROM permissions WHERE name='orders.view'");test(Security::can('orders.view'),'explicit role grant works');test(!Security::can('users.update'),'reserved privilege unavailable');DB::query('UPDATE users SET session_version=2 WHERE id=?',[$uid]);test(Security::user()===null,'password reset revokes session');
+ require __DIR__.'/products_mysql.php';
  require __DIR__.'/payments_mysql.php';
  echo "$n integration assertions passed. Test fixtures remain in dedicated test database.\n";
 }catch(Throwable $e){fwrite(STDERR,"FAIL ".$e->getMessage()."\n");exit(1);}

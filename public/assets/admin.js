@@ -29,48 +29,59 @@ if(moduleName==='roles'){target.innerHTML='<p>Admin มีสิทธิ์บ�
 }
 function variantEditor(v){editor(`<h3 class="h5">ไซซ์และราคา (ใช้ร่วมกันทุกกลุ่ม)</h3><input type="hidden" name="action" value="variant"><input type="hidden" name="id" value="${v.id||''}">` + select('product_type_id','ประเภท',data.types.map(t=>[t.id,t.name]),v.product_type_id)+input('size','ไซซ์',v.size||'')+input('price','ราคาบาท ทศนิยมไม่เกิน 2 ตำแหน่ง',v.price_satang?String(Math.trunc(Number(v.price_satang)/100))+'.'+String(Number(v.price_satang)%100).padStart(2,'0'):'')+select('active','สถานะ',activeOptions,v.active??0),save);}
 function bulkVariantEditor(){
-  const typeOpts=data.types.map(t=>[t.id,t.name]);
-  const rowHtml=(i)=>`<div class="bulk-row d-flex gap-2 align-items-end mb-2" data-row="${i}"><div style="flex:0 0 160px">${select('r'+i+'_type','ประเภท',typeOpts)}</div><div style="flex:1"><label class="form-label">ไซซ์</label><input name="r${i}_size" class="form-control" maxlength="30" required></div><div style="flex:1"><label class="form-label">ราคา (บาท)</label><input name="r${i}_price" class="form-control" inputmode="decimal" required></div><button type="button" class="btn btn-outline-danger btn-sm mb-1" onclick="this.closest('[data-row]').remove()">✕</button></div>`;
-  const wrap=document.createElement('div');
-  wrap.innerHTML=`<h3 class="h5">เพิ่มไซซ์หลายรายการพร้อมกัน</h3><input type="hidden" name="action" value="variants_bulk"><div id="bulk-rows">${rowHtml(0)}${rowHtml(1)}${rowHtml(2)}</div><button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="add-bulk-row">+ เพิ่มแถว</button>`;
-  $id('editor').innerHTML='<form id="edit-form" class="admin-form"></form>';
-  $id('edit-form').appendChild(wrap);
-  const saveBtn=document.createElement('button');saveBtn.className='btn btn-primary mt-3';saveBtn.textContent='บันทึกทั้งหมด';$id('edit-form').appendChild(saveBtn);
-  selects($id('editor'));
-  let rowCount=3;
-  $id('add-bulk-row').onclick=()=>{rowCount++;const div=document.createElement('div');div.innerHTML=rowHtml(rowCount);$id('bulk-rows').appendChild(div.firstElementChild);selects($id('bulk-rows').lastElementChild);};
-  $id('edit-form').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{
-    const variants=[];
-    $id('bulk-rows').querySelectorAll('[data-row]').forEach(row=>{
-      const i=row.dataset.row;
-      const type=row.querySelector('[name$="_type"]')?.value;
-      const size=(row.querySelector('[name$="_size"]')?.value||'').trim();
-      const price=(row.querySelector('[name$="_price"]')?.value||'').trim();
-      if(size&&price)variants.push({product_type_id:Number(type),size,price});
-    });
-    if(!variants.length)throw Error('กรุณากรอกข้อมูลอย่างน้อย 1 แถว');
+  let rowId=0;
+  const rowHtml=()=>{const i=rowId++;return `<div class="bulk-row admin-fields border rounded p-3 mb-3" data-row="${i}">${select('r'+i+'_type','ประเภทสินค้า',data.types.map(t=>[t.id,t.name]))}${input('r'+i+'_size','ไซซ์','','text')}${input('r'+i+'_price','ราคา (บาท)','','text')}${select('r'+i+'_active','สถานะ',activeOptions,1)}<button type="button" class="btn btn-outline-danger remove-size">ลบแถว</button></div>`;};
+  editor(`<h3 class="h5">เพิ่มหลายไซซ์พร้อมกัน</h3><p>เพิ่มได้สูงสุด 50 รายการ กำหนดราคาแต่ละไซซ์ได้ ราคาใช้ร่วมกันทุกโซน</p><div id="bulk-rows">${rowHtml()}</div><button type="button" class="btn btn-outline-secondary" id="add-bulk-row">+ เพิ่มแถว</button>`,async()=>{
+    const variants=Array.from($id('bulk-rows').children).map(row=>({
+      product_type_id:Number(row.querySelector('[name$="_type"]').value),
+      size:row.querySelector('[name$="_size"]').value.trim(),
+      price:row.querySelector('[name$="_price"]').value.trim(),
+      active:Number(row.querySelector('[name$="_active"]').value)
+    }));
+    if(!variants.length)throw Error('กรุณาเพิ่มอย่างน้อย 1 ไซซ์');
+    const seen=new Set();
+    for(const v of variants){
+      if(!v.size||v.size.length>30||! /^(0|[1-9][0-9]{0,7})(\.[0-9]{1,2})?$/.test(v.price)||Number(v.price)<=0)throw Error('กรุณาตรวจสอบไซซ์และราคาให้ครบทุกแถว');
+      const key=v.product_type_id+':'+v.size.toLocaleLowerCase();
+      if(seen.has(key))throw Error('มีไซซ์ซ้ำในสินค้าประเภทเดียวกัน');
+      seen.add(key);
+    }
     await api('/api/admin/products',{action:'variants_bulk',variants});
-    await Swal.fire({toast:true,icon:'success',title:`บันทึก ${variants.length} ไซซ์แล้ว`,timer:1800,showConfirmButton:false});
-    await load();
-  });};
+  });
+  const updateLimit=()=>{$id('add-bulk-row').disabled=$id('bulk-rows').children.length>=50;};
+  $id('add-bulk-row').onclick=()=>{
+    if($id('bulk-rows').children.length>=50)return;
+    $id('bulk-rows').insertAdjacentHTML('beforeend',rowHtml());
+    selects($id('bulk-rows').lastElementChild);updateLimit();
+  };
+  $id('bulk-rows').addEventListener('click',event=>{
+    const button=event.target.closest('.remove-size');if(!button)return;
+    const row=button.closest('[data-row]');$(row).find('select').select2('destroy');row.remove();updateLimit();
+  });
 }
 function bulkImageEditor(){
-  const typeOpts=data.types.map(t=>[t.id,t.name]);
-  const zoneNames=data.zones.map(z=>z.name);
-  let html=`<h3 class="h5">อัปโหลดภาพสินค้าทุกกลุ่มพร้อมกัน</h3><input type="hidden" name="action" value="images_bulk">${select('product_type_id','ประเภทสินค้า',typeOpts)}<hr class="my-3">`;
-  for(let z=1;z<=5;z++)html+=`<div class="mb-3"><label class="form-label fw-semibold">กลุ่ม ${z} — ${escapeHTML(zoneNames[z-1]||'')}</label><div class="d-flex gap-3 align-items-start"><div><input id="zone-img-${z}" name="zone_${z}" type="file" accept="image/jpeg,image/png,image/gif,image/webp" class="form-control" style="max-width:280px"><small class="text-secondary">ไม่เกิน 4 MB; เว้นว่างถ้าไม่เปลี่ยน</small></div><img id="zone-prev-${z}" class="preview" alt="ตัวอย่างกลุ่ม ${z}" hidden style="max-height:80px"></div></div>`;
-  $id('editor').innerHTML=`<form id="edit-form" class="admin-form">${html}<button class="btn btn-primary mt-3" type="submit">บันทึกภาพที่เลือก</button></form>`;
-  selects($id('editor'));
-  for(let z=1;z<=5;z++)preview($id('zone-img-'+z),$id('zone-prev-'+z));
-  $id('edit-form').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{
-    if(!(await Swal.fire({title:'ยืนยันอัปโหลดภาพ?',icon:'question',showCancelButton:true,confirmButtonText:'อัปโหลด',cancelButtonText:'ยกเลิก'})).isConfirmed)return;
-    const fd=new FormData(e.target);
-    let hasFile=false;for(let z=1;z<=5;z++){if(fd.get('zone_'+z)?.size>0)hasFile=true;}
-    if(!hasFile)throw Error('กรุณาเลือกภาพอย่างน้อย 1 กลุ่ม');
+  let html='<h3 class="h5">อัปโหลดภาพแยกกลุ่มโซนพร้อมกัน</h3><p>เลือกได้ครบ 5 กลุ่ม × 3 ประเภทในครั้งเดียว แต่ละภาพไม่เกิน 4 MB ช่องที่ไม่ได้เลือกจะเก็บภาพเดิมไว้</p><input type="hidden" name="action" value="images_bulk">';
+  for(const zone of data.zones){
+    html+=`<section class="border rounded p-3 mb-3"><h4 class="h6">${escapeHTML(zone.name)}</h4><div class="row g-3">`;
+    for(const type of data.types){
+      const key=`image_${zone.id}_${type.id}`;
+      const existing=data.images.find(i=>Number(i.zone_id)===Number(zone.id)&&Number(i.product_type_id)===Number(type.id));
+      html+=`<div class="col-12 col-md-4"><label class="form-label" for="${key}">${escapeHTML(type.name)}</label>${existing?.filename?`<img src="/media/product/${zone.id}/${type.id}?v=${encodeURIComponent(existing.filename)}" class="product-image mb-2" width="240" height="180" alt="ภาพปัจจุบัน ${escapeHTML(type.name)}" loading="lazy">`:'<p class="text-secondary">ยังไม่มีภาพ</p>'}<input id="${key}" name="${key}" type="file" accept="image/jpeg,image/png,image/gif,image/webp" class="form-control"><img id="preview_${key}" class="product-image mt-2" width="240" height="180" alt="ตัวอย่างภาพใหม่ ${escapeHTML(type.name)}" hidden></div>`;
+    }
+    html+='</div></section>';
+  }
+  editor(html,async fd=>{
+    let count=0;
+    for(const [key,file] of Array.from(fd.entries())){
+      if(!key.startsWith('image_'))continue;
+      if(!file.name){fd.delete(key);continue;}
+      if(file.size===0||file.size>4194304)throw Error('แต่ละภาพต้องมีขนาดมากกว่า 0 และไม่เกิน 4 MB');
+      count++;
+    }
+    if(!count)throw Error('กรุณาเลือกภาพอย่างน้อย 1 ภาพ');
     await save(fd);
-    await Swal.fire({toast:true,icon:'success',title:'บันทึกภาพแล้ว',timer:1300,showConfirmButton:false});
-    await load();
-  });};
+  });
+  for(const zone of data.zones)for(const type of data.types){const key=`image_${zone.id}_${type.id}`;preview($id(key),$id('preview_'+key));}
 }
 function userEditor(u){editor(`<input type="hidden" name="id" value="${u.id||''}">${input('username','ชื่อผู้ใช้',u.username||'')}${select('role_id','บทบาท',[[1,'Admin'],[2,'Sales'],[3,'Support']],u.role_id||2)}${select('active','สถานะ',activeOptions,u.active??1)}${input('password','รหัสผ่านใหม่อย่างน้อย 14 ตัวอักษร (เว้นว่างเพื่อคงเดิม)','','password',!u.id)}`,save);}
 async function orderDetail(id){const o=await api('/api/admin/orders?id='+id);$id('editor').innerHTML=`<div class="admin-form"><h3>${escapeHTML(o.reference)}</h3><p>${escapeHTML(o.customer_name)} · ${escapeHTML(o.phone)}</p><p>${escapeHTML(o.address)}</p>${table(['สินค้า','จำนวน','ราคา'],o.items.map(i=>`<tr><td>${escapeHTML(i.product_name)} / ${escapeHTML(i.size)}</td><td>${i.quantity}</td><td>${baht(i.unit_satang)}</td></tr>`).join(''))}<p>ยอด ${baht(o.total_satang)} บาท · ค่าจัดส่ง 0.00 บาท</p><h4 class="h6">ประวัติการชำระเงิน</h4>${o.attempts.map(p=>`<p>${escapeHTML(p.created_at)} · ${escapeHTML(statusLabel(p.status))} · ${escapeHTML(p.reason)}</p>`).join('')||'ยังไม่มีรายการ'}<h4 class="h6">ประวัติอนุมัติ Manual</h4>${(o.approvals||[]).map(a=>`<p>${escapeHTML(a.username)} · ${escapeHTML(a.created_at)}<br>${escapeHTML(a.reason)}</p>`).join('')||'ไม่มีการอนุมัติ Manual'}<h4 class="h6">หมายเหตุเจ้าหน้าที่</h4>${o.notes.map(n=>`<p>${escapeHTML(n.username)} · ${escapeHTML(n.created_at)}<br>${escapeHTML(n.note)}</p>`).join('')}<form id="order-edit"><input type="hidden" name="id" value="${id}"><label for="note">หมายเหตุ / เหตุผล</label><textarea id="note" name="note" required maxlength="2000" class="form-control"></textarea>${select('status','เปลี่ยนสถานะ',[['','บันทึกหมายเหตุเท่านั้น'],['fulfilled','จัดส่งแล้ว (จากชำระแล้ว)'],['cancelled','ยกเลิก (จากรอชำระ)']])}<button class="btn btn-primary mt-3">บันทึก</button></form></div>`;selects($id('editor'));$id('order-edit').onsubmit=e=>{e.preventDefault();busy(e.submitter,async()=>{await save(new FormData(e.target));await orderDetail(id);});};}
