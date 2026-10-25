@@ -1,9 +1,37 @@
 <?php
 // Content-based URLs invalidate browser caches after each asset change.
 $asset = static function (string $file): string {
-    $hash = hash_file('sha256', ROOT.'/public/assets/'.$file);
+    $hash = hash_file('sha256', ROOT . '/public/assets/' . $file);
     if ($hash === false) throw new RuntimeException('Missing application asset');
-    return '/assets/'.$file.'?v='.substr($hash, 0, 16);
+    return '/assets/' . $file . '?v=' . substr($hash, 0, 16);
 };
 ?>
-<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="<?= e($_SESSION['csrf']) ?>"><title>สั่งเสื้อกีฬา · Sport Shirt</title><link rel="stylesheet" href="<?= e($asset('vendor/bootstrap.min.css')) ?>"><link rel="stylesheet" href="<?= e($asset('vendor/select2.min.css')) ?>"><link rel="stylesheet" href="<?= e($asset('vendor/select2-bootstrap-5-theme.min.css')) ?>"><link rel="stylesheet" href="<?= e($asset('vendor/sweetalert2.min.css')) ?>"><link rel="stylesheet" href="<?= e($asset('app.css')) ?>"></head><body data-page="<?= e($name) ?>"><header class="topbar"><a href="/" class="brand"><span class="brand-mark">S</span> SPORT SHIRT <small>ระบบสั่งเสื้อกีฬา</small></a><a href="/admin" class="text-decoration-none">สำหรับเจ้าหน้าที่ ↗</a></header><main class="container py-4"><?php require ROOT.'/app/Views/'.$name.'.php'; ?></main><footer class="container py-4 text-secondary border-top">Sport Shirt · <a href="/privacy" target="_blank" rel="noopener">ประกาศความเป็นส่วนตัว</a></footer><script src="<?= e($asset('vendor/jquery.min.js')) ?>"></script><script src="<?= e($asset('vendor/bootstrap.bundle.min.js')) ?>"></script><script src="<?= e($asset('vendor/select2.min.js')) ?>"></script><script src="<?= e($asset('vendor/sweetalert2.min.js')) ?>"></script><script src="<?= e($asset('common.js')) ?>"></script><?php if(in_array($name,['shop','admin','login'],true)): ?><script src="<?= e($asset($name.'.js')) ?>"></script><?php endif; ?></body></html>
+<!doctype html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="csrf-token" content="<?= e($_SESSION['csrf']) ?>">
+    <title>ระบบสั่งเสื้อกีฬา ESAN DOLE GAMES</title>
+    <link rel="stylesheet" href="<?= e($asset('vendor/bootstrap.min.css')) ?>">
+    <link rel="stylesheet" href="<?= e($asset('vendor/select2.min.css')) ?>">
+    <link rel="stylesheet" href="<?= e($asset('vendor/select2-bootstrap-5-theme.min.css')) ?>">
+    <link rel="stylesheet" href="<?= e($asset('vendor/sweetalert2.min.css')) ?>">
+    <link rel="stylesheet" href="<?= e($asset('app.css')) ?>">
+</head>
+<body data-page="<?= e($name) ?>">
+<header class="topbar"><a href="/" class="brand">
+        <img src="<?= e($asset('img/logo.png')) ?>" alt="Logo" class="brand-mark">ESAN DOLE GAMES</a>
+    <a href="/admin" class="text-decoration-none">เจ้าหน้าที่ ↗</a>
+</header>
+<main class="container py-4"><?php require ROOT . '/app/Views/' . $name . '.php'; ?></main>
+<footer class="container py-4 text-secondary border-top">Sport Shirt · <a href="/privacy" target="_blank"
+                                                                          rel="noopener">ประกาศความเป็นส่วนตัว</a>
+</footer>
+<script src="<?= e($asset('vendor/jquery.min.js')) ?>"></script>
+<script src="<?= e($asset('vendor/bootstrap.bundle.min.js')) ?>"></script>
+<script src="<?= e($asset('vendor/select2.min.js')) ?>"></script>
+<script src="<?= e($asset('vendor/sweetalert2.min.js')) ?>"></script>
+<script src="<?= e($asset('common.js')) ?>"></script><?php if (in_array($name, ['shop', 'admin', 'login'], true)): ?>
+    <script src="<?= e($asset($name . '.js')) ?>"></script><?php endif; ?></body>
+</html>

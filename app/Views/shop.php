@@ -4,7 +4,7 @@
         <h1>ESAN<br><span>DOLE GAMES</span></h1>
    </div>
     <div class="hero-art" aria-hidden="true">
-        <img src="../../public/assets/img/logo.png" alt="โลโก้ DOLE GAMES" width="200" height="200">
+        <img src="<?= e($asset('img/logo.png')) ?>" alt="โลโก้ DOLE GAMES" width="200" height="200">
     </div>
 </section>
 <p id="not-ready" class="panel text-secondary" hidden>ระบบยังไม่เปิดรับคำสั่งซื้อ
