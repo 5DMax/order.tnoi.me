@@ -19,10 +19,8 @@ final class Payments {
   // Release PHP session lock and all DB locks before remote I/O.
   if(session_status()===PHP_SESSION_ACTIVE)session_write_close();
   try{
-   $payload=QrPayload::read(ROOT.'/storage/uploads/'.$saved['filename']);
-   $response=($api??new EasySlip())->verifyPayload($payload,(int)$o['total_satang'],$o['reference']);
-  }catch(\InvalidArgumentException){$response=['success'=>false,'error'=>['code'=>'QR_UNREADABLE']];}
-  catch(\Throwable){$response=['success'=>false,'error'=>['code'=>'QR_OR_TRANSPORT_ERROR']];}
+   $response=($api??new EasySlip())->verify(ROOT.'/storage/uploads/'.$saved['filename'],(int)$o['total_satang'],$o['reference']);
+  }catch(\Throwable){$response=['success'=>false,'error'=>['code'=>'TIMEOUT_OR_NETWORK']];}
 
   return self::complete($o,(int)$attempt['id'],$response);
  }

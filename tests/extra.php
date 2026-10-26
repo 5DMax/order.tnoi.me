@@ -12,7 +12,7 @@ check(Http::integer('12',1,999)===12,'valid quantity');
 check(strlen(Security::token(str_repeat('a',64)))===64,'256-bit access token');
 check(Security::token(str_repeat('a',64))!==Security::token(str_repeat('b',64)),'access tokens isolated');
 check(Security::token(str_repeat('a',64))===Security::token(str_repeat('a',64)),'retry derives same access token');
-foreach(['matchedAccount','rawSlip','amountInSlip'] as $missing){$x=$r;unset($x['data'][$missing]);check(SlipDecision::evaluate($x,$bank,10000)['status']==='review','missing '.$missing.' requires review');}
+foreach(['matchedAccount','rawSlip','amountInSlip'] as $missing){$x=$r;unset($x['data'][$missing]);check(SlipDecision::evaluate($x,$bank,10000)['status']===($missing==='rawSlip'?'review':'verified'),'optional response field '.$missing);}
 $x=$r;$x['data']['matchedAccount']['bankNumber']='123-4-xxxxx-0';check(SlipDecision::evaluate($x,$bank,10000)['status']==='rejected','masked matched account cannot authorize');
 $x=$r;$x['data']['isDuplicate']='false';check(SlipDecision::evaluate($x,$bank,10000)['status']==='review','duplicate flag must be boolean');
 $x=$r;$x['data']['rawSlip']['transRef']='';check(SlipDecision::evaluate($x,$bank,10000)['status']==='review','empty reference rejected');

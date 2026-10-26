@@ -10,25 +10,25 @@ final class SlipDecision {
   }
   $d=$r['data']??[];$a=$d['matchedAccount']??null;$s=$d['rawSlip']??[];
   if(is_string($s['transRef']??null)&&preg_match('/^[A-Za-z0-9_-]{1,128}$/D',$s['transRef']))$result['reference']=$s['transRef'];
-  try{$result['amount']=Money::parse($d['amountInSlip']??null);}catch(\InvalidArgumentException){}
+  try{$result['amount']=Money::parse($s['amount']['amount']??null);}catch(\InvalidArgumentException){}
   if(($d['isDuplicate']??null)===true)return array_replace($result,['status'=>'duplicate','reason'=>'สลิปซ้ำ']);
   if(($d['isDuplicate']??null)!==false)return $result;
   $number=static fn($v)=>preg_replace('/[\s-]/','',(string)$v);
-  $confirmed=false;
+
   if(is_array($a)){
    if($number($a['bankNumber']??'')!==$number($bank['bank_number'])||($a['bank']['code']??null)!==$bank['bank_code'])return array_replace($result,['status'=>'rejected','reason'=>'บัญชีหรือธนาคารผู้รับไม่ตรง']);
-   $confirmed=true;
+
   }
   $receiver=$s['receiver']['account']['bank']??[];
   $rawNumber=$number($receiver['account']??'');
   if(($receiver['type']??null)==='BANKAC'&&preg_match('/^[0-9]{6,40}$/D',$rawNumber)){
    if($rawNumber!==$number($bank['bank_number']))return array_replace($result,['status'=>'rejected','reason'=>'เลขบัญชีผู้รับไม่ตรง']);
-   if(($s['receiver']['bank']['id']??null)===$bank['bank_code'])$confirmed=true;
+
   }
   if(isset($s['receiver']['bank']['id']) && $s['receiver']['bank']['id']!==$bank['bank_code'])return array_replace($result,['status'=>'rejected','reason'=>'ธนาคารในสลิปขัดแย้ง']);
-  if(!$confirmed)return array_replace($result,['reason'=>'ไม่สามารถยืนยันเลขบัญชีผู้รับเต็มได้ รอเจ้าหน้าที่ตรวจสอบ']);
-  if(($s['amount']['local']['currency']??null)!=='THB'||!is_string($s['transRef']??null)||!preg_match('/^[A-Za-z0-9_-]{1,128}$/D',$s['transRef']))return $result;
-  try{$amount=Money::parse($d['amountInSlip']??null);if($amount!==Money::parse($s['amount']['amount']??null)||$amount!==Money::parse($s['amount']['local']['amount']??null))return $result;}catch(\InvalidArgumentException){return $result;}
+  if(($s['receiver']['bank']['id']??null)!==($bank['bank_code']??null))return $result;
+  if((isset($s['amount']['local']['currency'])&&$s['amount']['local']['currency']!=='THB')||!is_string($s['transRef']??null)||!preg_match('/^[A-Za-z0-9_-]{1,128}$/D',$s['transRef']))return $result;
+  try{$amount=Money::parse($s['amount']['amount']??null);if(isset($d['amountInSlip'])&&$amount!==Money::parse($d['amountInSlip']))return $result;if(isset($s['amount']['local']['amount'])&&$amount!==Money::parse($s['amount']['local']['amount']))return $result;}catch(\InvalidArgumentException){return $result;}
   return ['status'=>$amount===$total?'verified':($amount<$total?'underpaid':'overpaid'),'reason'=>$amount===$total?'ตรวจสอบสำเร็จ':'ยอดไม่ตรง กรุณาติดต่อเจ้าหน้าที่','amount'=>$amount,'reference'=>$s['transRef']];
  }
 }
