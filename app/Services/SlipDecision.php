@@ -27,8 +27,10 @@ final class SlipDecision {
   }
   if(isset($s['receiver']['bank']['id']) && $s['receiver']['bank']['id']!==$bank['bank_code'])return array_replace($result,['status'=>'rejected','reason'=>'ธนาคารในสลิปขัดแย้ง']);
   if(($s['receiver']['bank']['id']??null)!==($bank['bank_code']??null))return $result;
-  if((isset($s['amount']['local']['currency'])&&$s['amount']['local']['currency']!=='THB')||!is_string($s['transRef']??null)||!preg_match('/^[A-Za-z0-9_-]{1,128}$/D',$s['transRef']))return $result;
-  try{$amount=Money::parse($s['amount']['amount']??null);if(isset($d['amountInSlip'])&&$amount!==Money::parse($d['amountInSlip']))return $result;if(isset($s['amount']['local']['amount'])&&$amount!==Money::parse($s['amount']['local']['amount']))return $result;}catch(\InvalidArgumentException){return $result;}
+  // Empty local currency means the optional local amount is not populated.
+  $currency=$s['amount']['local']['currency']??'';
+  if(($currency!==''&&$currency!=='THB')||!is_string($s['transRef']??null)||!preg_match('/^[A-Za-z0-9_-]{1,128}$/D',$s['transRef']))return $result;
+  try{$amount=Money::parse($s['amount']['amount']??null);if(isset($d['amountInSlip'])&&$amount!==Money::parse($d['amountInSlip']))return $result;if($currency==='THB'&&isset($s['amount']['local']['amount'])&&$amount!==Money::parse($s['amount']['local']['amount']))return $result;}catch(\InvalidArgumentException){return $result;}
   return ['status'=>$amount===$total?'verified':($amount<$total?'underpaid':'overpaid'),'reason'=>$amount===$total?'ตรวจสอบสำเร็จ':'ยอดไม่ตรง กรุณาติดต่อเจ้าหน้าที่','amount'=>$amount,'reference'=>$s['transRef']];
  }
 }
