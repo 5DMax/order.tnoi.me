@@ -8,7 +8,7 @@ PHP 8.4 + Apache, PDO/MySQL 8, Bootstrap 5, Vanilla JS, Select2 และ SweetA
 - External Docker network `de-net` สำหรับ MySQL และ `proxy` สำหรับ Traefik
 - MySQL 8.0.16 ขึ้นไป (แนะนำ 8.4), database/user สำหรับแอปนี้โดยเฉพาะ
 - DNS ของโดเมนชี้มายัง Traefik และผู้ดูแลตรวจว่ากำหนด router ไม่ชนระบบอื่น
-- API Key EasySlip v2, บัญชีรับเงินจริง, ราคาและไซซ์จริง, ภาพ 15 ชุด, QR LINE และเบอร์ติดต่อจริง
+- API Key EasySlip v2, บัญชีรับเงินจริง, ราคาและไซซ์จริง, ภาพ 20 ชุด, QR LINE และเบอร์ติดต่อจริง
 - ผู้รับผิดชอบตรวจทานประกาศความเป็นส่วนตัวและเติมข้อมูลใน `app/Views/privacy.php`
 
 ตรวจ network โดยไม่เปลี่ยนแปลง:
@@ -105,7 +105,7 @@ docker compose exec app php bin/console.php admin:create
 ## 5. ตั้งค่าหลังบ้าน `/admin`
 
 1. **สินค้าและราคา** เพิ่มไซซ์/ราคาทั้งสามประเภท เปิดใช้งานประเภทและไซซ์ที่ขาย ราคาใช้ร่วมกันทุกกลุ่ม ไม่มี stock ส่วนลด หรือค่าส่ง
-2. **ภาพตามกลุ่ม** เลือกกลุ่ม/ประเภท อัปโหลดภาพและตรวจ preview ให้ครบ 15 ชุด ไม่มีภาพสินค้าสมมติ
+2. **ภาพตามกลุ่ม** เลือกกลุ่ม/ประเภท อัปโหลดภาพและตรวจ preview ให้ครบ 20 ชุด ไม่มีภาพสินค้าสมมติ
 3. **ช่องทางติดต่อ** ตั้งเบอร์จริงและอัปโหลด QR LINE ของเจ้าหน้าที่ ระบบไม่สร้าง QR หรือบัญชีให้
 4. **ธนาคาร / EasySlip** กดรายชื่อธนาคารจาก GET `/banks` ตรวจ bankCode และ `extraVerify` ที่ธนาคารต้องการ กรอกบัญชีจริง 1 บัญชี ชื่อไทย/อังกฤษ ประเภท `NATURAL` หรือ `JURISTIC` และพิมพ์ข้อความยืนยันก่อนบันทึก
 5. ตั้งค่าบัญชีรับเงินใน EasySlip ให้ตรงกับหลังบ้าน ระบบเก็บรูปสลิปแล้วส่ง multipart image ไป POST `/v2/verify/bank` พร้อม `matchAccount=true`, `checkDuplicate=true` และ `matchAmount` จากยอดคำสั่งซื้อ ยืนยันเมื่อ success=true, isDuplicate=false, rawSlip.receiver.bank.id ตรงกับธนาคารในคำสั่งซื้อ และ rawSlip.amount.amount ตรงกับยอดชำระ ใช้ transRef ป้องกันการใช้ซ้ำภายในระบบ ไม่บังคับ matchedAccount, amountInSlip หรือ amount.local ใน response; หากมีค่าขัดแย้งจะไม่อนุมัติ ไม่ต้องติดตั้งตัวอ่าน QR ในเซิร์ฟเวอร์.
@@ -149,7 +149,7 @@ MySQL integration tests ต้อง **สร้าง database ว่างแ�
 TEST_DB_DATABASE=sport_shirts_test php tests/integration.php
 ```
 
-ครอบคลุม migration/seed ซ้ำ, 5 กลุ่ม 20 จังหวัด, 15 image slots, ราคา snapshot, หลายไซซ์, ปิดขาย/ไม่มีราคา, idempotency, PDPA, RBAC, session revocation, EasySlip mock ยอดตรง/ขาด/เกิน/ผิดบัญชี/ธนาคาร/ซ้ำ/error และ worker สอง process แย่ง transaction reference เดียวกัน Browser tests สำหรับเครื่องพัฒนาเท่านั้น (ไม่ต้องมี Node ใน production): ติดตั้ง Playwright ใน tooling environment แล้วรัน `node tests/browser.cjs` หากใช้ Chromium ที่ติดตั้งอยู่ให้ตั้ง `BROWSER_EXECUTABLE` เป็น path ของ browser; ทดสอบ mobile checkout ด้วย mocked API และบันทึกภาพไว้ใน `/tmp` ไม่ใช่ end-to-end database test
+ครอบคลุม migration/seed ซ้ำ, 5 กลุ่ม 20 จังหวัด, 20 image slots, ราคา snapshot, หลายไซซ์, ปิดขาย/ไม่มีราคา, idempotency, PDPA, RBAC, session revocation, EasySlip mock ยอดตรง/ขาด/เกิน/ผิดบัญชี/ธนาคาร/ซ้ำ/error และ worker สอง process แย่ง transaction reference เดียวกัน Browser tests สำหรับเครื่องพัฒนาเท่านั้น (ไม่ต้องมี Node ใน production): ติดตั้ง Playwright ใน tooling environment แล้วรัน `node tests/browser.cjs` หากใช้ Chromium ที่ติดตั้งอยู่ให้ตั้ง `BROWSER_EXECUTABLE` เป็น path ของ browser; ทดสอบ mobile checkout ด้วย mocked API และบันทึกภาพไว้ใน `/tmp` ไม่ใช่ end-to-end database test
 
 Exit 77 หมายถึง **ไม่ได้รันทดสอบ** ไม่ใช่ผ่าน
 
@@ -245,8 +245,11 @@ docker compose up -d
 
 ที่เมนูสินค้าและราคา กด **เพิ่มหลายไซซ์พร้อมกัน** เพิ่ม/ลบแถวและกำหนดประเภท ไซซ์ ราคา สถานะได้สูงสุด 50 รายการ แล้วกดบันทึกครั้งเดียว ถ้าข้อมูลผิดหรือไซซ์ซ้ำจะไม่เพิ่มรายการใดในชุดนั้น
 
-กด **อัปโหลดทุกกลุ่มพร้อมกัน** เพื่อเลือกภาพในตาราง 5 โซน × 3 ประเภท พร้อม preview ภาพใหม่ ช่องว่างจะคงภาพเดิมไว้ ภาพละไม่เกิน 4 MB รวมได้ 15 ภาพต่อคำขอ ถ้าไฟล์ใดไม่ผ่าน ระบบจะไม่เปลี่ยนภาพในฐานข้อมูลและลบไฟล์ใหม่ของชุดที่ไม่สำเร็จ
+กด **อัปโหลดทุกกลุ่มพร้อมกัน** เพื่อเลือกภาพในตาราง 5 โซน × 4 ประเภท พร้อม preview ภาพใหม่ ช่องว่างจะคงภาพเดิมไว้ ภาพละไม่เกิน 4 MB รวมได้ 20 ภาพต่อคำขอ ถ้าไฟล์ใดไม่ผ่าน ระบบจะไม่เปลี่ยนภาพในฐานข้อมูลและลบไฟล์ใหม่ของชุดที่ไม่สำเร็จ
 
-PHP กำหนด `post_max_size=64M`, `upload_max_filesize=4M`, `max_file_uploads=20` ต้อง build/push image ใหม่และ deploy เพื่อใช้ค่าที่เปลี่ยน หาก Traefik มี middleware จำกัด request body ให้รองรับอย่างน้อย 64 MiB สำหรับหลังบ้านด้วย
+PHP กำหนด `post_max_size=96M`, `upload_max_filesize=4M`, `max_file_uploads=20` ต้อง build/push image ใหม่และ deploy เพื่อใช้ค่าที่เปลี่ยน หาก Traefik มี middleware จำกัด request body ให้รองรับอย่างน้อย 96 MiB สำหรับหลังบ้านด้วย
 
 ทดสอบ validation ของ batch: `php tests/product_batch.php`
+
+### เพิ่มหมวดเสื้อนักกีฬา
+หลัง deploy image ใหม่ ให้รัน `docker compose exec app php bin/console.php migrate` เพื่อเพิ่มหมวดที่ 4 และช่องภาพทุกโซนในฐานข้อมูลเดิม หมวดใหม่เริ่มปิดขาย ให้เพิ่มไซซ์ ราคา รูป แล้วเปิดขายจากหลังบ้าน ข้อมูลหมวดเดิมและคำสั่งซื้อเดิมคงอยู่ สำหรับติดตั้งใหม่ seed จะสร้างครบ 4 หมวด

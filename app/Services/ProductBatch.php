@@ -15,8 +15,8 @@ final class ProductBatch
         $seen = [];
         foreach ($rows as $i => $row) {
             if (!is_array($row)) throw new \InvalidArgumentException('ข้อมูลแถวที่ '.($i + 1).' ไม่ถูกต้อง');
-            $type = Http::integer($row['product_type_id'] ?? 0, 1, 3);
-            $size = Http::text($row, 'size', 1, 30);
+            $type = Http::integer($row['product_type_id'] ?? 0, 1, 4);
+            $size = Http::text($row, 'size', 1, 40);
             $price = Money::parse($row['price'] ?? '');
             if ($price < 1) throw new \InvalidArgumentException('ราคาของไซซ์ '.$size.' ต้องมากกว่า 0');
             $key = $type.':'.mb_strtolower($size);
@@ -48,9 +48,9 @@ final class ProductBatch
     public static function images(array $input, array $files): array
     {
         $result = [];
-        $legacy = isset($input['product_type_id']) ? Http::integer($input['product_type_id'], 1, 3) : null;
+        $legacy = isset($input['product_type_id']) ? Http::integer($input['product_type_id'], 1, 4) : null;
         foreach (range(1, 5) as $zone) {
-            foreach ($legacy ? [$legacy] : range(1, 3) as $type) {
+            foreach ($legacy ? [$legacy] : range(1, 4) as $type) {
                 $key = $legacy ? 'zone_'.$zone : 'image_'.$zone.'_'.$type;
                 if (!isset($files[$key])) continue;
                 $file = $files[$key];

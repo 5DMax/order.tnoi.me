@@ -20,3 +20,9 @@ verify(count($images)===2&&$images[1]['zone_id']===5&&$images[1]['product_type_i
 invalid(fn()=>ProductBatch::images([],[]),'reject empty image selection');
 invalid(fn()=>ProductBatch::images([],['image_1_1'=>['error'=>UPLOAD_ERR_INI_SIZE]]),'reject upload error instead of silently skipping');
 verify(ProductBatch::images(['product_type_id'=>2],['zone_3'=>['error'=>0]])[0]['zone_id']===3,'legacy image batch supported');
+
+verify(ProductBatch::variants([['product_type_id'=>4,'size'=>'M','price'=>'199']])[0]['product_type_id']===4,'athlete shirt sizes supported');
+$all=[];foreach(range(1,5) as $zone)foreach(range(1,4) as $type)$all['image_'.$zone.'_'.$type]=['error'=>0];
+verify(count(ProductBatch::images([],$all))===20,'all 20 zone and type images accepted');
+verify(ProductBatch::images(['product_type_id'=>4],['zone_5'=>['error'=>0]])[0]['product_type_id']===4,'athlete shirt legacy image upload supported');
+invalid(fn()=>ProductBatch::variants([['product_type_id'=>5,'size'=>'M','price'=>'199']]),'unknown product type rejected');

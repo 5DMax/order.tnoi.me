@@ -13,7 +13,7 @@ function reject(callable $fn,string $name):void{try{$fn();}catch(InvalidArgument
 try{
  foreach(['migrate','seed','migrate','seed'] as $command){passthru(escapeshellarg(PHP_BINARY).' '.escapeshellarg(ROOT.'/bin/console.php').' '.$command,$status);if($status!==0)throw new RuntimeException('Migration/seed failed');}
  if(DB::one('SELECT id FROM orders LIMIT 1')||DB::one('SELECT id FROM product_variants LIMIT 1')||DB::one('SELECT id FROM users LIMIT 1'))throw new RuntimeException('Requires a newly created empty test database; existing data will not be modified');
- test(count(DB::all('SELECT * FROM zones'))===5,'seed 5 zones');test(count(DB::all('SELECT * FROM provinces'))===20,'seed 20 provinces');test(count(DB::all('SELECT * FROM zone_product_images'))===15,'15 zone image slots');test(DB::one('SELECT COUNT(*) n FROM product_variants')['n']===0,'no invented prices');
+ test(count(DB::all('SELECT * FROM zones'))===5,'seed 5 zones');test(count(DB::all('SELECT * FROM provinces'))===20,'seed 20 provinces');test(count(DB::all('SELECT * FROM zone_product_images'))===20,'20 zone image slots');test(DB::one('SELECT COUNT(*) n FROM product_variants')['n']===0,'no invented prices');
  $base=['name'=>'ผู้ทดสอบ ระบบ','phone'=>'0812345678','address'=>'ที่อยู่สำหรับการทดสอบระบบเท่านั้น','zone_id'=>1,'province_id'=>1,'privacy'=>true,'idempotency_key'=>bin2hex(random_bytes(32)),'items'=>[['variant_id'=>1,'quantity'=>2]]];
  reject(fn()=>Orders::create($base),'unconfigured bank blocks checkout');
  // Synthetic fixture ONLY in explicitly selected empty *_test database.

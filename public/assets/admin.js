@@ -60,7 +60,7 @@ function bulkVariantEditor(){
   });
 }
 function bulkImageEditor(){
-  let html='<h3 class="h5">อัปโหลดภาพแยกกลุ่มโซนพร้อมกัน</h3><p>เลือกได้ครบ 5 กลุ่ม × 3 ประเภทในครั้งเดียว แต่ละภาพไม่เกิน 4 MB ช่องที่ไม่ได้เลือกจะเก็บภาพเดิมไว้</p><input type="hidden" name="action" value="images_bulk">';
+  let html='<h3 class="h5">อัปโหลดภาพแยกกลุ่มโซนพร้อมกัน</h3><p>เลือกได้ครบ 5 กลุ่ม × 4 ประเภทในครั้งเดียว แต่ละภาพไม่เกิน 4 MB ช่องที่ไม่ได้เลือกจะเก็บภาพเดิมไว้</p><input type="hidden" name="action" value="images_bulk">';
   for(const zone of data.zones){
     html+=`<section class="border rounded p-3 mb-3"><h4 class="h6">${escapeHTML(zone.name)}</h4><div class="row g-3">`;
     for(const type of data.types){
